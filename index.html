@@ -106,9 +106,11 @@ details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;alig
   <div class="legend gl" id="gLegend"></div>
   <div class="row lim">
    <div><label for="th2">Green ends at (<span class="pu"></span> below baseline)</label><input id="th2" type="number" step="0.5" min="0" inputmode="decimal"></div>
-   <div><label for="th3">Red starts at (<span class="pu"></span> below baseline)</label><input id="th3" type="number" step="0.5" min="0" inputmode="decimal"></div>
+   <div><label for="th3">Red (severe) starts at SWP of (<span class="pu"></span>)</label><input id="th3" type="number" step="0.5" max="0" inputmode="decimal"></div>
+   <button class="btn" id="resetLim" type="button" style="flex:none">Reset defaults</button>
   </div>
-  <p class="note" id="limMsg" style="margin-bottom:22px">Set limits for your crop and stage. Defaults: 1 bar (green → moderate) and 10 bar (moderate → severe).</p>
+  <p class="note" id="limMsg"></p>
+  <p class="note" id="sevSrc" style="margin-bottom:22px"></p>
   <div class="out">
    <div>
     <div class="note" id="cropName"></div>
@@ -127,7 +129,7 @@ details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;alig
 <section class="band"><div class="wrap grid2">
  <div class="card">
   <h2>All crops at these conditions</h2>
-  <table class="stack"><thead><tr><th>Crop</th><th class="n">Baseline</th><th>Equation (MPa, kPa)</th></tr></thead><tbody id="allBody"></tbody></table>
+  <table class="stack"><thead><tr><th>Crop</th><th class="n">Baseline</th><th class="n">Green to</th><th class="n">Severe below</th><th>Equation (MPa, kPa)</th></tr></thead><tbody id="allBody"></tbody></table>
  </div>
  <div class="card">
   <h2>Baseline vs VPD</h2>
@@ -173,6 +175,7 @@ details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;alig
   <li><b>Grapevine (Bordeaux)</b> — a = −0.062, b = −0.0972, with the day's maximum VPD. Suter et al. (2019) Front. Plant Sci. 10:1485.</li>
   <li><b>Pistachio</b> — a = −0.5192, b = −0.1902. Memmi et al. (2016) Span. J. Agric. Res. 14(2):e0804 (Kerman, Spain).</li>
  </ul>
+ <p><b>Stress zones.</b> Green (no stress) extends 1.5 bar (0.15 MPa) below the baseline by default. Red (severe) starts at a fixed, crop-specific SWP from the literature: almond, prune and peach −20 bar (UC tentative guidelines, Fulton et al. 2007; Andrews 2025); walnut −14 bar (Fulton et al. 2007); olive −25 bar (Andrews 2025; Shackel et al. 2021 report yield loss at −3 to −4 MPa during pit hardening); grapevine −14 bar (van Leeuwen et al. 2009); pistachio −20 bar (severe RDI level, Memmi et al. 2016). Yellow lies between. Both limits are editable; severe overrides are kept per crop.</p>
  <p class="note">Field crops such as processing tomato have no widely adopted published SWP baseline; use the Custom option with coefficients fitted to your own well-watered reference plots.</p>
  </details>
 </div></section>
@@ -181,19 +184,20 @@ details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;alig
 <script>
 {
 const CROPS=[
- {id:'almond',name:'Almond',a:-0.41,b:-0.12,v:[0.5,7.5],src:'McCutchan & Shackel 1992',c:'#e0115f'},
- {id:'prune',name:'Prune (dried plum)',a:-0.41,b:-0.12,v:[0.5,7.5],src:'McCutchan & Shackel 1992',c:'#e0115f',dup:1},
- {id:'prunus',name:'Peach / cherry / apricot (Prunus baseline)',a:-0.41,b:-0.12,v:[0.5,7.5],src:'Prunus baseline, extended',c:'#e0115f',dup:1},
- {id:'walnut',name:'Walnut',a:-0.278,b:-0.064,v:[0.5,7.5],src:'Shackel UC table (fit)',c:'#7a5c2e'},
- {id:'olive',name:'Olive',a:-0.34,b:-0.18,v:[1.5,3.5],src:'Shackel et al. 2021',c:'#6b8e23'},
- {id:'grape',name:'Grapevine',a:-0.23,b:-0.068,v:[1.2,8.7],src:'Williams & Baeza 2007',c:'#7b3fa0'},
- {id:'grapeB',name:'Grapevine (Bordeaux, daily max VPD)',a:-0.062,b:-0.0972,v:[0.5,4.5],src:'Suter et al. 2019',c:'#c084fc'},
- {id:'pist',name:'Pistachio',a:-0.5192,b:-0.1902,v:[0.5,4.5],src:'Memmi et al. 2016',c:'#2a9d8f'},
- {id:'custom',name:'Custom',a:-0.40,b:-0.10,v:[0,8],src:'User-defined',c:'#2449b8'}];
+ {id:'almond',sev:-2.0,ssrc:'UC tentative guidelines (Fulton et al. 2007): high stress below −20 bar',name:'Almond',a:-0.41,b:-0.12,v:[0.5,7.5],src:'McCutchan & Shackel 1992',c:'#e0115f'},
+ {id:'prune',sev:-2.0,ssrc:'UC tentative guidelines (Fulton et al. 2007): readings beyond −20 bar harmful',name:'Prune (dried plum)',a:-0.41,b:-0.12,v:[0.5,7.5],src:'McCutchan & Shackel 1992',c:'#e0115f',dup:1},
+ {id:'prunus',sev:-2.0,ssrc:'UCCE (Andrews 2025), peach: severe at −20 bar and lower',name:'Peach / cherry / apricot (Prunus baseline)',a:-0.41,b:-0.12,v:[0.5,7.5],src:'Prunus baseline, extended',c:'#e0115f',dup:1},
+ {id:'walnut',sev:-1.4,ssrc:'UC tentative guidelines (Fulton et al. 2007): severe defoliation at −14 to −18 bar',name:'Walnut',a:-0.278,b:-0.064,v:[0.5,7.5],src:'Shackel UC table (fit)',c:'#7a5c2e'},
+ {id:'olive',sev:-2.5,ssrc:'UCCE (Andrews 2025): severe at −25 bar and lower; Shackel et al. 2021: yield loss −3 to −4 MPa',name:'Olive',a:-0.34,b:-0.18,v:[1.5,3.5],src:'Shackel et al. 2021',c:'#6b8e23'},
+ {id:'grape',sev:-1.4,ssrc:'van Leeuwen et al. 2009 / Rienth 2023: severe water stress below −1.4 MPa',name:'Grapevine',a:-0.23,b:-0.068,v:[1.2,8.7],src:'Williams & Baeza 2007',c:'#7b3fa0'},
+ {id:'grapeB',sev:-1.4,ssrc:'van Leeuwen et al. 2009 / Rienth 2023: severe water stress below −1.4 MPa',name:'Grapevine (Bordeaux, daily max VPD)',a:-0.062,b:-0.0972,v:[0.5,4.5],src:'Suter et al. 2019',c:'#c084fc'},
+ {id:'pist',sev:-2.0,ssrc:'Memmi et al. 2016: severe RDI treatment held at −2.0 MPa',name:'Pistachio',a:-0.5192,b:-0.1902,v:[0.5,4.5],src:'Memmi et al. 2016',c:'#2a9d8f'},
+ {id:'custom',sev:-2.0,ssrc:'User-defined',name:'Custom',a:-0.40,b:-0.10,v:[0,8],src:'User-defined',c:'#2449b8'}];
 const $=id=>document.getElementById(id);
 const S={crop:'almond',tu:'C',pu:'bar',t:32,rh:30,meas:'',ca:-0.40,cb:-0.10,th:[-0.2,-0.1,-1.0]};
-try{Object.assign(S,JSON.parse(localStorage.getItem('swpBaseline')||'{}'));if(+S.th[1]===-0.5)S.th[1]=-0.1}catch(e){}
-if(!(S.th[1]<=0&&S.th[1]>=-3&&S.th[2]<S.th[1]&&S.th[2]>=-6))S.th=[-0.2,-0.1,-1.0];
+try{Object.assign(S,JSON.parse(localStorage.getItem('swpBaseline')||'{}'))}catch(e){}
+if(S.v!==3){S.v=3;S.gd=-0.15;S.sevO={}}
+if(!(S.gd<=0&&S.gd>=-2))S.gd=-0.15;if(typeof S.sevO!=='object'||!S.sevO)S.sevO={};
 const save=()=>{try{localStorage.setItem('swpBaseline',JSON.stringify(S))}catch(e){}};
 const toC=t=>S.tu==='F'?(t-32)*5/9:t, fromC=t=>S.tu==='F'?t*9/5+32:t;
 const es=T=>0.6108*Math.exp(17.27*T/(T+237.3));
@@ -203,9 +207,11 @@ const base=(c,V)=>c.a+c.b*V;
 const k=()=>S.pu==='bar'?10:1, dp=()=>S.pu==='bar'?1:2;
 const fmt=mpa=>(mpa*k()).toFixed(dp());
 const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function status(d){const t=S.th.map(Number);
- if(d>=t[1])return['No water stress','#2bb673'];
- if(d>=t[2])return['Moderate stress','#f2c230'];
+const sevOf=id=>{const o=S.sevO[id];return typeof o==='number'?o:(CROPS.find(x=>x.id===id)||CROPS[0]).sev};
+const lims=(id,bl)=>{const t3=sevOf(id);return[Math.max(bl+S.gd,t3),t3]};
+function status(ms,bl,id){const [t2,t3]=lims(id,bl);
+ if(ms>=t2)return['No water stress','#2bb673'];
+ if(ms>=t3)return['Moderate stress','#f2c230'];
  return['Severe stress','#e5383b']}
 $('crop').innerHTML=CROPS.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
 function setSeg(el,v){for(const b of el.querySelectorAll('button'))b.setAttribute('aria-pressed',b.dataset.v===v)}
@@ -214,10 +220,10 @@ function syncInputs(){
  const tr=$('tr');tr.min=S.tu==='F'?40:5;tr.max=S.tu==='F'?122:50;tr.step=S.tu==='F'?1:0.5;
  $('t').value=(+S.t).toFixed(1);tr.value=S.t;$('rh').value=S.rh;$('rhr').value=S.rh;
  $('meas').value=S.meas;$('ca').value=S.ca;$('cb').value=S.cb;
- ['th2','th3'].forEach((id,i)=>$(id).value=+(-S.th[i+1]*k()).toFixed(2));for(const e of document.querySelectorAll('.pu'))e.textContent=S.pu;
+ $('th2').value=+(-S.gd*k()).toFixed(2);$('th3').value=+(sevOf(S.crop)*k()).toFixed(2);for(const e of document.querySelectorAll('.pu'))e.textContent=S.pu;
  setSeg($('tu'),S.tu);setSeg($('pu'),S.pu)}
 function gauge(bl,ms){
- const t2=bl+(+S.th[1]),t3=bl+(+S.th[2]);
+ const [t2,t3]=lims(S.crop,bl);
  const lo=Math.max(-12,Math.min(-3,Math.floor(Math.min(t3+0.25*(t3-t2)-0.5,ms??0)-0.2)));
  const ang=v=>Math.PI*(1-Math.max(lo,Math.min(0,v))/lo);
  const cx=200,cy=196,R=172,P=(a,r)=>[(cx+r*Math.cos(a)).toFixed(1),(cy-r*Math.sin(a)).toFixed(1)];
@@ -247,11 +253,12 @@ function render(){
  if(ms!=null)rows.push(['Measured − baseline',`${((ms-bl)*k()).toFixed(dp())} ${S.pu}`]);
  $('kv').innerHTML=rows.map(r=>`<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('');
  const st=$('status');
- if(ms!=null){const [txt,col]=status(ms-bl);st.style.setProperty('--c',col);st.innerHTML=`<b>${txt}.</b> Measured ${(ms*k()).toFixed(dp())} ${S.pu} is ${Math.abs((ms-bl)*k()).toFixed(dp())} ${S.pu} ${ms<bl?'below':'above'} the baseline.`}
+ if(ms!=null){const [txt,col]=status(ms,bl,S.crop);st.style.setProperty('--c',col);st.innerHTML=`<b>${txt}.</b> Measured ${(ms*k()).toFixed(dp())} ${S.pu} is ${Math.abs((ms-bl)*k()).toFixed(dp())} ${S.pu} ${ms<bl?'below':'above'} the baseline.`}
  else{st.style.setProperty('--c','var(--line)');st.textContent='Enter a measured SWP to see its departure from baseline.'}
  const out=V<c.v[0]||V>c.v[1];
  $('eqLine').textContent=`SWP = ${c.a} ${c.b<0?'−':'+'} ${Math.abs(c.b)} × VPD (MPa, kPa) · ${c.src}`+(out?` · Current VPD is outside the ${c.v[0]}–${c.v[1]} kPa calibration range.`:'');
- $('allBody').innerHTML=CROPS.map(x=>{const cc=crop(x.id);return`<tr class="${x.id===S.crop?'sel':''}"><td>${esc(cc.name)}</td><td class="n">${fmt(base(cc,V))} ${S.pu}</td><td><span class="tag">${cc.a} ${cc.b<0?'−':'+'} ${Math.abs(cc.b)}·VPD · ${esc(cc.src)}</span></td></tr>`}).join('');
+ $('allBody').innerHTML=CROPS.map(x=>{const cc=crop(x.id);return`<tr class="${x.id===S.crop?'sel':''}"><td>${esc(cc.name)}</td><td class="n">${fmt(base(cc,V))} ${S.pu}</td><td class="n">${fmt(lims(x.id,base(cc,V))[0])}</td><td class="n">${fmt(sevOf(x.id))}</td><td><span class="tag">${cc.a} ${cc.b<0?'−':'+'} ${Math.abs(cc.b)}·VPD · ${esc(cc.src)}</span></td></tr>`}).join('');
+ const o=typeof S.sevO[S.crop]==='number';$('sevSrc').textContent=o?`Severe limit set by you (literature default ${fmt(c.sev)} ${S.pu}: ${c.ssrc}).`:`Severe limit source: ${c.ssrc}.`;
  gauge(bl,ms);chart();lookup();save()}
 const ch=$('chart');
 function chart(){
@@ -287,24 +294,25 @@ function batch(){
  for(const line of $('batchIn').value.split(/\r?\n/)){const p=line.split(/[,;\t ]+/).filter(Boolean).map(Number);
   if(p.length<2||p.slice(0,2).some(isNaN))continue;
   const T=toC(p[0]),V=vpd(T,p[1]),bl=base(c,V),ms=p.length>2&&!isNaN(p[2])?p[2]/k():null;
-  rows.push({t:p[0],rh:p[1],V,bl,ms,d:ms==null?null:ms-bl,st:ms==null?'':status(ms-bl)[0]})}
+  rows.push({t:p[0],rh:p[1],V,bl,ms,d:ms==null?null:ms-bl,st:ms==null?'':status(ms,bl,S.crop)[0]})}
  const u=S.pu;
  $('batchOut').innerHTML=rows.length?`<thead><tr><th class="n">T °${S.tu}</th><th class="n">RH %</th><th class="n">VPD kPa</th><th class="n">Baseline ${u}</th><th class="n">Measured ${u}</th><th class="n">Δ ${u}</th><th>Status</th></tr></thead><tbody>`+rows.map(r=>`<tr><td class="n">${r.t}</td><td class="n">${r.rh}</td><td class="n">${r.V.toFixed(2)}</td><td class="n">${fmt(r.bl)}</td><td class="n">${r.ms==null?'':fmt(r.ms)}</td><td class="n">${r.d==null?'':fmt(r.d)}</td><td>${esc(r.st)}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td>No valid rows yet — paste temperature and RH values.</td></tr></tbody>';
  batchCSV=`crop,T_${S.tu},RH_pct,VPD_kPa,baseline_${u},measured_${u},delta_${u},status\n`+rows.map(r=>[`"${c.name}"`,r.t,r.rh,r.V.toFixed(3),fmt(r.bl),r.ms==null?'':fmt(r.ms),r.d==null?'':fmt(r.d),r.st].join(',')).join('\n')}
 async function copy(txt,btn){const o=btn.textContent;try{await navigator.clipboard.writeText(txt);btn.textContent='Copied'}catch(e){btn.textContent='Copy blocked — select the table instead'}setTimeout(()=>btn.textContent=o,1800)}
-$('crop').onchange=e=>{S.crop=e.target.value;$('customBox').hidden=S.crop!=='custom';render();batch()};
+$('crop').onchange=e=>{S.crop=e.target.value;$('th3').value=+(sevOf(S.crop)*k()).toFixed(2);$('customBox').hidden=S.crop!=='custom';render();batch()};
 $('t').oninput=e=>{if(e.target.value==='')return;S.t=+e.target.value;$('tr').value=S.t;render()};
 $('tr').oninput=e=>{S.t=+e.target.value;$('t').value=(+S.t).toFixed(1);render()};
 $('rh').oninput=e=>{if(e.target.value==='')return;S.rh=+e.target.value;$('rhr').value=S.rh;render()};
 $('rhr').oninput=e=>{S.rh=+e.target.value;$('rh').value=S.rh;render()};
 $('meas').oninput=e=>{S.meas=e.target.value;render()};
 $('ca').oninput=e=>{S.ca=+e.target.value||0;render();batch()};$('cb').oninput=e=>{S.cb=+e.target.value||0;render();batch()};
-['th2','th3'].forEach((id,i)=>$(id).oninput=e=>{const v=Math.abs(parseFloat(e.target.value));const m=$('limMsg');if(isNaN(v))return;
- const mpa=-v/k(),o=[S.th[1],S.th[2]];o[i]=mpa;
- if(o[1]>=o[0]){m.textContent=`Red must start further below baseline than green ends (${(-o[0]*k()).toFixed(dp())} ${S.pu}).`;m.style.color='#e5383b';return}
- if(o[1]<-6){m.textContent=`Limits above ${6*k()} ${S.pu} below baseline are not physiologically meaningful here.`;m.style.color='#e5383b';return}
- m.style.color='';m.textContent=`Green down to ${(-o[0]*k()).toFixed(dp())} ${S.pu} below baseline, severe beyond ${(-o[1]*k()).toFixed(dp())} ${S.pu}.`;
- S.th[1]=o[0];S.th[2]=o[1];render();batch()});
+const lmsg=(t,bad)=>{const m=$('limMsg');m.textContent=t;m.style.color=bad?'#e5383b':''};
+$('th2').oninput=e=>{const v=Math.abs(parseFloat(e.target.value));if(isNaN(v))return;if(v/k()>2){lmsg(`Green limit must be within ${(2*k()).toFixed(0)} ${S.pu} of baseline.`,1);return}
+ S.gd=-v/k();lmsg(`Green down to ${v} ${S.pu} below baseline (all crops).`);render();batch()};
+$('th3').oninput=e=>{const v=-Math.abs(parseFloat(e.target.value));if(isNaN(v))return;const mpa=v/k();
+ if(mpa<-8){lmsg(`Severe limit below ${-8*k()} ${S.pu} is outside the physiological range.`,1);return}
+ S.sevO[S.crop]=mpa;lmsg(`Severe limit for ${crop(S.crop).name} set to ${v} ${S.pu}.`);render();batch()};
+$('resetLim').onclick=()=>{S.gd=-0.15;delete S.sevO[S.crop];syncInputs();lmsg(`Reset: green 1.5 bar below baseline, severe limit from literature.`);render();batch()};
 $('tu').onclick=e=>{const v=e.target.dataset?.v;if(!v||v===S.tu)return;const T=toC(+S.t);S.tu=v;S.t=+fromC(T).toFixed(1);syncInputs();render();batch()};
 $('pu').onclick=e=>{const v=e.target.dataset?.v;if(!v||v===S.pu)return;if(S.meas!==''&&!isNaN(+S.meas))S.meas=String(+(v==='bar'?S.meas*10:S.meas/10).toFixed(2));S.pu=v;syncInputs();render();batch()};
 $('runBatch').onclick=batch;
